@@ -1,0 +1,43 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "Prefix": {
+            "type": "string",            
+            "minLength": 1,
+            "maxLength": 5,
+            "metadata": {
+                "description": "Enter a 5 charector prefix for your storage account"
+            }
+        }
+    },
+    "variables": {
+        "STName": "[concat(parameters('Prefix'),'stor69')]"
+    },
+    "resources": [
+        {
+            "name": "[variables('STName')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2020-08-01-preview",
+            "tags": {
+                "displayName": "[variables('STName')]"
+            },
+            "location": "[resourceGroup().location]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            }
+        }
+    ],
+    "outputs": {
+        "StorageAccountName": {
+            "type": "string",
+            "value": "[variables('STName')]"
+        },
+        "ResourceidSTORAGE": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.storage/storageAccounts/', variables('STName'))]"
+        }
+    }
+}

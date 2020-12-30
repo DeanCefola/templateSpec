@@ -1,0 +1,77 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "DNS-Servers": {
+            "type": "array",
+            "defaultValue": [
+                "10.0.0.4",
+                "10.0.0.5"
+            ],
+            "metadata": {
+                "description": "Enter IP Addresses in the format of an Array"
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "name": "virtualNetwork",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-05-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "virtualNetwork",
+                "CostCenter": "AA-Money"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "dhcpOptions": {
+                    "dnsServers": "[parameters('DNS-Servers')]"
+                },
+                "enableDdosProtection": false,
+                "enableVmProtection": false,
+                "subnets": [
+                    {
+                        "name": "GatewaySubnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/26"
+                        }
+                    },
+                    {
+                        "name": "AzureFirewallSubnet",
+                        "properties": {
+                            "addressPrefix": "10.0.1.0/26"
+                        }
+                    },
+                    {
+                        "name": "AzureBastionSubnet",
+                        "properties": {
+                            "addressPrefix": "10.0.2.0/26"
+                        }
+                    },
+                    {
+                        "name": "Workloads",
+                        "properties": {
+                            "addressPrefix": "10.0.3.0/24"
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "outputs": {
+        "DNSServers": {
+            "type": "array",
+            "value": "[parameters('DNS-Servers')]"
+        },
+        "ResourceidVNET": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Network/virtualNetworks/', 'VirtualNetwork')]"
+        }
+    }
+}

@@ -1,0 +1,132 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+		"DNS-Servers": {
+            "type": "array",
+            "defaultValue": [
+                "10.0.0.4",
+                "10.0.0.5"
+            ],
+            "metadata": {
+                "description": "Enter IP Addresses in the format of an Array"
+            }
+        },
+        "Prefix": {
+            "type": "string",            
+            "minLength": 1,
+            "maxLength": 5,
+            "metadata": {
+                "description": "Enter a 5 charector prefix for your storage account"
+            }
+        },
+        "AdminUserName": {
+            "type": "string"
+        },
+        "AdminPassword": {
+            "type": "securestring"
+        },        
+        "Instance": {
+            "type": "int",
+            "minValue": 1,
+            "maxValue": 99,
+            "defaultValue": 1
+        },
+        "OperatingSystem": {
+            "type": "string",
+            "defaultValue": "Client",
+            "allowedValues": [
+                "Server",
+                "Client"
+            ]
+        },
+        "VMSize": {
+            "type": "string",
+            "defaultValue": "Small",
+            "allowedValues": [
+                "Small",
+                "Medium",
+                "Large"
+            ]
+        }
+	},
+    "variables": {
+    },
+    "resources": [	
+        {
+            "name": "linked-VNET",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-06-01",
+            "copy": {
+                "name": "COPY-VNET",
+                "count": 1
+            },
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {                    
+                    "relativePath": "./Linked-VNET.json"                    
+                },
+                "parameters": {
+                    "DNS-Servers":{"value": "[parameters('DNS-Servers')]"}
+                }
+            }
+        },
+        {
+            "name": "linked-Storage",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-06-01",
+            "copy": {
+                "name": "COPY-STORAGE",
+                "count": 1
+            },
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "id": "[resourceId('Microsoft.Resources/templateSpecs/versions', 'Linked-Storage', '0.1')]"            
+                },
+                "parameters": {
+                    "Prefix":{"value": "[parameters('Prefix')]"}
+                }
+            }
+        },
+        {
+            "name": "linked-VM",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-06-01",
+            "copy": {
+                "name": "COPY-VM",
+                "count": 1
+            },
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "relativePath": "./Linked-VM.json"                    
+                },
+                "parameters": {
+                    "Prefix":{ "value": "[parameters('Prefix')]"},
+                    "ResourceidVNET": { "value": "[reference('linked-VNET').outputs.ResourceidVNET.value]"},
+                    "ResourceidSTORAGE": { "value": "[reference('linked-Storage').outputs.ResourceidSTORAGE.value]"},
+                    "Instance":{ "value": "[parameters('Instance')]"},
+                    "OperatingSystem":{ "value": "[parameters('OperatingSystem')]"},
+                    "VMSize":{ "value": "[parameters('VMSize')]"},
+                    "AdminUserName":{ "value": "[parameters('AdminUserName')]"},
+                    "AdminPassword":{ "value": "[parameters('AdminPassword')]"}
+                }                
+            },
+            "dependsOn": [
+                "COPY-VNET",
+                "COPY-STORAGE"
+            ]
+        }
+	],
+    "outputs": {
+        "DNSServers": {
+            "type": "array",
+            "value": "[reference('linked-VNET').outputs.DNSServers.value]"
+        },
+        "StorageAccountName": {
+            "type": "string",
+            "value": "[reference('linked-Storage').outputs.StorageAccountName.value]"
+        }
+    }
+}   

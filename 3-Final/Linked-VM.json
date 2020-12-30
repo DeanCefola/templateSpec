@@ -1,0 +1,170 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "Prefix": {
+    "type": "string",
+    "defaultValue": "wvd"
+    },
+    "AdminUserName": {
+      "type": "string"
+    },
+    "AdminPassword": {
+      "type": "securestring"
+    },        
+    "Instance": {
+      "type": "int",
+      "minValue": 1,
+      "maxValue": 99,
+      "defaultValue": 1
+    },
+    "OperatingSystem": {
+      "type": "string",
+      "defaultValue": "Client",
+      "allowedValues": [
+          "Server",
+          "Client"
+      ]
+    },
+    "VMSize": {
+      "type": "string",
+      "defaultValue": "Small",
+      "allowedValues": [
+          "Small",
+          "Medium",
+          "Large"
+      ]
+    },
+    "ResourceidVNET": {
+      "type": "string"            
+    },
+    "ResourceidSTORAGE": {
+    "type": "string"
+    }
+  },
+  "variables": {
+    "VM_Images": {
+      "Server": {
+          "publisher": "MicrosoftWindowsServer",
+          "offer": "WindowsServer",
+          "sku": "2019-Datacenter-smalldisk",
+          "version": "latest"
+      },
+      "Client": {
+          "publisher": "microsoftwindowsdesktop",
+          "offer": "office-365",
+          "sku": "20h1-evd-o365pp",
+          "version": "latest"
+      }
+    },
+    "VM_SIZES": {
+      "Small": {
+          "WVDsize": "Standard_B2ms"
+      },
+      "Medium": {
+          "WVDsize": "Standard_DS3_v2"
+      },
+      "Large": {
+          "WVDsize": "Standard_DS14_v2"
+      }
+    },
+    "License": {
+      "Server": {
+          "License": "Windows_Server"
+      },
+      "Client": {
+          "License": "Windows_Client"
+      },
+      "Multi": {
+          "License": "Windows_Client"
+      }
+    },
+    "VMName": "[concat(parameters('Prefix'),'-VM-')]",
+    "subnetRef": "[concat(parameters('ResourceidVNET'),'/subnets/', 'Workloads')]"        
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('VMName'),copyIndex(),'-nic')]",      
+      "apiVersion": "2020-05-01",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "COPY-NIC",
+        "count": "[parameters('Instance')]"
+      },      
+      "tags": {
+        "displayName": "VM NIC"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipConfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",              
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[concat(variables('VMName'),copyIndex())]",      
+      "apiVersion": "2019-07-01",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "COPY-VM",
+        "count": "[parameters('Instance')]"
+      },      
+      "tags": {
+        "displayName": "windowsVM1"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('VM_SIZES')[parameters('VMSize')].WVDsize]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "name": "[concat(variables('VMName'),copyIndex(),'-OSDisk')]",
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            }
+          },
+          "imageReference": {
+            "publisher": "[variables('VM_IMAGES')[parameters('OperatingSystem')].publisher]",
+            "offer": "[variables('VM_Images')[parameters('OperatingSystem')].offer]",
+            "sku": "[variables('VM_Images')[parameters('OperatingSystem')].sku]",
+            "version": "[variables('VM_Images')[parameters('OperatingSystem')].version]"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('VMName'),copyIndex(),'-nic'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[concat(variables('VMName'),copyIndex())]",
+          "adminUsername": "[parameters('AdminUserName')]",
+          "adminPassword": "[parameters('AdminPassword')]",
+          "windowsConfiguration": {
+            "enableAutomaticUpdates": true,
+            "provisionVmAgent": true
+          }
+        },
+        "licenseType": "[variables('License')[parameters('OperatingSystem')].License]"
+      },
+      "zones": [
+        1
+      ],
+      "dependsOn": [
+        "COPY-NIC"
+      ]
+    }
+  ],
+  "outputs": {}
+}
