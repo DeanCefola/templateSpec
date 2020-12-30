@@ -64,7 +64,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {                    
-                    "relativePath": "./Linked-VNET.json"                    
+                    "uri": "https://raw.githubusercontent.com/DeanCefola/templateSpec/main/3-Final/Linked-VNET.json"
                 },
                 "parameters": {
                     "DNS-Servers":{"value": "[parameters('DNS-Servers')]"}
@@ -82,7 +82,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "id": "[resourceId('Microsoft.Resources/templateSpecs/versions', 'Linked-Storage', '0.1')]"            
+                    "id": "[resourceId('Microsoft.Resources/templateSpecs/versions', 'Storage', '0.1')]"            
                 },
                 "parameters": {
                     "Prefix":{"value": "[parameters('Prefix')]"}
