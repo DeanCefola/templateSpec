@@ -1,0 +1,2 @@
+# templateSpec
+Azure ARM TemplateSpec
