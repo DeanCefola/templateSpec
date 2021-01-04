@@ -1,0 +1,288 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "Prefix": {
+            "type": "string",
+            "metadata": {
+                "description": "Prefix for all resources"
+            }
+        },
+        "VNETName": {
+            "type": "string",
+            "allowedValues": [
+                "FTA-WVD-Lab",
+                "MSAA-Lab",
+                "AA-WVD-Lab",
+                "CXP-Scale"
+            ]            
+        },
+        "AdminUserName": {
+            "type": "string",
+            "metadata": {
+                "description": "Local Admin User Name"
+            },
+            "defaultValue": "lntad"
+        },
+        "AdminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Local Admin Password"
+            }
+        },
+        "OperatingSystem": {
+            "type": "string",
+            "metadata": {
+                "description": "Select Type of OS"
+            },
+            "allowedValues": [
+                "Server",
+                "Client"
+            ]
+        }
+    },
+    "variables": {
+        "VMSS_Name": "[concat(parameters('Prefix'),'-Scale')]",
+        "VM_Images": {
+            "Server": {
+                "publisher": "MicrosoftWindowsServer",
+                "offer": "WindowsServer",
+                "sku": "2019-Datacenter-smalldisk",
+                "version": "latest"
+            },
+            "Client": {
+                "publisher": "MicrosoftWindowsDesktop",
+                "offer": "Windows-10",
+                "sku": "20h2-ent",
+                "version": "latest"
+            }            
+        },
+      "VnetIDs": {
+        "FTA-WVD-Lab":{
+            "vNET": "/subscriptions/17a60df3-f02e-43a2-b52b-11abb3a53049/resourceGroups/MSAA-Network-rg/providers/Microsoft.Network/virtualNetworks/MSAA-vNET"
+          },
+        "MSAA-Lab":{
+            "vNET": "/subscriptions/c82ad9b5-1009-44fd-abdc-2b30f8e55ba0/resourceGroups/WVDNetwork/providers/Microsoft.Network/virtualNetworks/WVDNetwork"
+          },
+        "AA-WVD-Lab":{
+            "vNET": "/subscriptions/25603d65-4ffd-4496-815d-417e73e71da3/resourceGroups/AA-WVD-VNet-rg/providers/Microsoft.Network/virtualNetworks/AA-WVD-vNET"
+          },
+        "CXP-Scale":{
+            "vNET": "/subscriptions/3a8206a1-e9f3-44a2-84f0-e532b9862258/resourceGroups/SCALE-0/providers/Microsoft.Network/virtualNetworks/SCALE-0-vnet"
+          }
+      },
+      "disk": "/subscriptions/17a60df3-f02e-43a2-b52b-11abb3a53049/resourceGroups/scale/providers/Microsoft.Compute/disks/20-Scale_20-Scale_0_OsDisk_1_bd9c3ab983684f1b8302863a53fa0ed9"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets",
+            "apiVersion": "2019-07-01",
+            "name": "[variables('VMSS_Name')]",
+            "location": "eastus",
+            "copy": {
+                "name": "COPY-VMSS",
+                "count": 1
+            },
+            "tags": {
+                "Application": "Azure Academy",
+                "Environment": "Lab"
+            },
+            "sku": {
+                "name": "Standard_DS3_v2",
+                "tier": "Standard",
+                "capacity": 1
+            },
+            "zones": [
+                "1",
+                "2",
+                "3"
+            ],
+            "properties": {
+                "singlePlacementGroup": false,
+                "upgradePolicy": {
+                    "mode": "Manual"
+                },
+                "scaleInPolicy": {
+                    "rules": [
+                        "OldestVM"
+                    ]
+                },
+                "virtualMachineProfile": {
+                    "osProfile": {
+                        "computerNamePrefix": "[variables('VMSS_Name')]",
+                        "adminUsername": "[parameters('AdminUserName')]",
+                        "adminPassword": "[parameters('AdminPassword')]",
+                        "windowsConfiguration": {
+                            "provisionVMAgent": true,
+                            "enableAutomaticUpdates": true
+                        },
+                        "secrets": []
+                    },
+                    "storageProfile": {
+                        "osDisk": {
+                            "diffDiskSettings": {
+                                "option": "Local"
+                            },
+                            "createOption": "FromImage",
+                            "caching": "ReadOnly",
+                            "managedDisk": {
+                                "storageAccountType": "Standard_LRS"
+                            },
+                            "diskSizeGB": 127
+                        },
+                        "imageReference": {
+                            "publisher": "[variables('VM_IMAGES')[parameters('OperatingSystem')].publisher]",
+                            "offer": "[variables('VM_Images')[parameters('OperatingSystem')].offer]",
+                            "sku": "[variables('VM_Images')[parameters('OperatingSystem')].sku]",
+                            "version": "[variables('VM_Images')[parameters('OperatingSystem')].version]"
+                        }
+                    },
+                    "networkProfile": {
+                        "networkInterfaceConfigurations": [
+                            {
+                                "name": "[concat(parameters('Prefix'),'Scale-nic01')]",
+                                "properties": {
+                                    "primary": true,
+                                    "enableAcceleratedNetworking": true,
+                                    "dnsSettings": {
+                                        "dnsServers": []
+                                    },
+                                    "enableIPForwarding": false,
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "[concat(parameters('Prefix'),'-Scale-nic01-IpConfig')]",
+                                            "properties": {
+                                                "primary": true,
+                                                "subnet": {
+                                                    "id": "[variables('VnetIDs')[parameters('VNETName')]]"
+                                                },
+                                                "privateIPAddressVersion": "IPv4"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "diagnosticsProfile": {
+                        "bootDiagnostics": {
+                            "enabled": true
+                        }
+                    },
+                    "extensionProfile": {
+                        "extensions": []
+                    },
+                    "licenseType": "Windows_Client",
+                    "priority": "Regular"
+                },
+                "overprovision": true,
+                "doNotRunExtensionsOnOverprovisionedVMs": false,
+                "zoneBalance": false,
+                "platformFaultDomainCount": 5
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "name": "[concat(variables('VMSS_Name'), '/0')]",
+            "location": "eastus",            
+            "tags": {
+                "Application": "Azure Academy",
+                "Environment": "Lab"
+            },
+            "sku": {
+                "name": "Standard_DS3_v2",
+                "tier": "Standard"
+            },
+            "zones": [
+                "1"
+            ],
+            "properties": {
+                "networkProfileConfiguration": {
+                    "networkInterfaceConfigurations": [
+                        {
+                            "name": "[concat(parameters('Prefix'),'Scale-nic01')]",
+                            "properties": {
+                                "primary": true,
+                                "enableAcceleratedNetworking": true,
+                                "dnsSettings": {
+                                    "dnsServers": []
+                                },
+                                "enableIPForwarding": false,
+                                "ipConfigurations": [
+                                    {
+                                        "name": "[concat(parameters('Prefix'),'-Scale-nic01-IpConfig')]",
+                                        "properties": {
+                                            "primary": true,
+                                            "subnet": {
+                                                "id": "[variables('VnetIDs')[parameters('VNETName').vnet]]"
+                                            },
+                                            "privateIPAddressVersion": "IPv4"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "hardwareProfile": {},
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('VM_Images')[parameters('OperatingSystem').publisher]]",
+                        "offer": "[variables('VM_Images')[parameters('OperatingSystem').offer]]",
+                        "sku": "[variables('VM_Images')[parameters('OperatingSystem').sku]]",
+                        "version": "[variables('VM_Images')[parameters('OperatingSystem').version]]"
+                    },
+                    "osDisk": {
+                        "osType": "Windows",
+                        "diffDiskSettings": {
+                            "option": "Local"
+                        },
+                        "name": "[concat(parameters('Prefix'),'-Scale_0_OsDisk')]",
+                        "createOption": "FromImage",
+                        "caching": "ReadOnly",
+                        "managedDisk": {
+                            "storageAccountType": "Standard_LRS",
+                            "id": "[resourceId('Microsoft.Compute/disks',parameters('Prefix'),'-Scale_0_OSDisk')]"                            
+                        },
+                        "diskSizeGB": 127
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "172-scalew000000",
+                    "adminUsername": "lntad",
+                    "windowsConfiguration": {
+                        "provisionVMAgent": true,
+                        "enableAutomaticUpdates": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true,
+                    "requireGuestProvisionSignal": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[concat(resourceId('Microsoft.Compute/virtualMachineScaleSets/virtualMachines', variables('VMSS_Name'), '0'), '/networkInterfaces/',parameters('Prefix'),'-Scale-nic01')]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true
+                    }
+                },
+                "licenseType": "Windows_Client"
+            },
+            "dependsOn": [
+                "COPY-VMSS"
+            ]
+        }
+    ],
+    "outputs": {
+        "Image": {
+            "type": "Object",
+            "value": "[variables('VM_Images')[parameters('OperatingSystem')]]"
+        }
+    }
+}
